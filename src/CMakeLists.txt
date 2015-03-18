@@ -1,6 +1,9 @@
 CMAKE_MINIMUM_REQUIRED ( VERSION 2.8 FATAL_ERROR )
 PROJECT ( LIBNTOH )
 
+OPTION (WITH_STATIC_LIBNTOH "Build libntoh staticaly" ON)
+OPTION (WITH_PYTHON "Build python bindings" OFF)
+
 # set project version
 SET ( ${PROJECT_NAME}_MAJOR_VERSION "0" )
 SET ( ${PROJECT_NAME}_MINOR_VERSION "4" )
@@ -29,21 +32,29 @@ SET_SOURCE_FILES_PROPERTIES ( ${INTERFACE_FILES} PROPERTIES CPLUSCPLUS OFF )
 
 # required libraries
 FIND_PACKAGE ( Threads REQUIRED )
-FIND_PACKAGE ( SWIG REQUIRED )
-FIND_PACKAGE ( PythonLibs 2.7 REQUIRED )
+if (WITH_PYTHON)
+	FIND_PACKAGE ( SWIG REQUIRED )
+	FIND_PACKAGE ( PythonLibs 2.7 REQUIRED )
+endif()
 
 # set include directories
 INCLUDE_DIRECTORIES ( ${LIBNTOH_INC} )
-INCLUDE_DIRECTORIES ( ${PYTHON_INCLUDE_DIRS} )
 INCLUDE_DIRECTORIES ( ${CMAKE_CURRENT_SOURCE_DIR})
-INCLUDE ( ${SWIG_USE_FILE} )
+if (WITH_PYTHON)
+	INCLUDE_DIRECTORIES ( ${PYTHON_INCLUDE_DIRS} )
+	INCLUDE ( ${SWIG_USE_FILE} )
 
-# SWIG src files
-SWIG_ADD_MODULE ( ${MODULE_NAME} python ${INTERFACE_FILES} ${LIBNTOH_SRCS} )
-SWIG_LINK_LIBRARIES ( ${MODULE_NAME} ${PYTHON_LIBRARIES} )
+	# SWIG src files
+	SWIG_ADD_MODULE ( ${MODULE_NAME} python ${INTERFACE_FILES} ${LIBNTOH_SRCS} )
+	SWIG_LINK_LIBRARIES ( ${MODULE_NAME} ${PYTHON_LIBRARIES} )
+endif()
 
 # set target from source
-ADD_LIBRARY( ${OUTPUT_LIB} SHARED ${LIBNTOH_SRCS} )
+if (WITH_STATIC_LIBNTOH)
+	ADD_LIBRARY( ${OUTPUT_LIB} STATIC ${LIBNTOH_SRCS} )
+else()
+	ADD_LIBRARY( ${OUTPUT_LIB} SHARED ${LIBNTOH_SRCS} )
+endif()
 #ADD_LIBRARY( ${OUTPUT_LIB} STATIC ${LIBNTOH_SRCS} ) // static: comment the line above and uncomment this one to compile as static library (contrib by Di3)
 
 # pkgconfig file
@@ -56,14 +67,16 @@ TARGET_LINK_LIBRARIES( ${OUTPUT_LIB} ${CMAKE_THREAD_LIBS_INIT})
 # set install information #
 ###########################
 # library
-INSTALL ( TARGETS ${OUTPUT_LIB} LIBRARY DESTINATION lib )
+INSTALL ( TARGETS ${OUTPUT_LIB} LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
 #INSTALL ( TARGETS ${OUTPUT_LIB} ARCHIVE DESTINATION lib )// static: comment the line above and uncomment this one to compile as static library (contrib by Di3)
 # headers
 INSTALL ( FILES ${LIBNTOH_INC}/libntoh.h ${LIBNTOH_INC}/tcpreassembly.h ${LIBNTOH_INC}/sfhash.h ${LIBNTOH_INC}/ipv4defrag.h ${LIBNTOH_INC}/ipv6defrag.h ${LIBNTOH_INC}/common.h DESTINATION include/libntoh )
 # pkconfig file
 INSTALL ( FILES ${CMAKE_CURRENT_BINARY_DIR}/ntoh.pc DESTINATION lib/pkgconfig)
-# swig
-execute_process(COMMAND python -c "from distutils.sysconfig import get_python_lib; print get_python_lib()" OUTPUT_VARIABLE PYTHON_SITE_PACKAGES OUTPUT_STRIP_TRAILING_WHITESPACE)
-install(TARGETS _libntoh DESTINATION ${PYTHON_SITE_PACKAGES})
-install(FILES ${CMAKE_BINARY_DIR}/libntoh.py DESTINATION ${PYTHON_SITE_PACKAGES})
+if (WITH_PYTHON)
+	# swig
+	execute_process(COMMAND python -c "from distutils.sysconfig import get_python_lib; print get_python_lib()" OUTPUT_VARIABLE PYTHON_SITE_PACKAGES OUTPUT_STRIP_TRAILING_WHITESPACE)
+	install(TARGETS _libntoh DESTINATION ${PYTHON_SITE_PACKAGES})
+	install(FILES ${CMAKE_BINARY_DIR}/libntoh.py DESTINATION ${PYTHON_SITE_PACKAGES})
+endif()
 
